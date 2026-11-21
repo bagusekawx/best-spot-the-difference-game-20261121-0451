@@ -16,6 +16,7 @@
   var sceneName = document.getElementById('sceneName');
   var hintBtn = document.getElementById('hintBtn');
   var muteBtn = document.getElementById('muteBtn');
+  var pauseBtn = document.getElementById('pauseBtn');
   var overlay = document.getElementById('overlay');
   var overlayCard = document.getElementById('overlayCard');
   var timeStat = timeLabel.parentElement;
@@ -27,6 +28,7 @@
   var timeLeft = 0;
   var hints = 2;
   var muted = false;
+  var paused = false;
   var missMarks = [];
   var hintPulse = null;
   var audio = null;
@@ -76,7 +78,7 @@
 
   function updateHud() {
     var s = scene();
-    var key = sceneIndex + '|' + found.length + '|' + score + '|' + fmtTime(timeLeft) + '|' + hints + '|' + muted;
+    var key = sceneIndex + '|' + found.length + '|' + score + '|' + fmtTime(timeLeft) + '|' + hints + '|' + muted + '|' + paused;
     if (key === lastHud) return;
     lastHud = key;
     roundLabel.textContent = (sceneIndex + 1) + ' / ' + SCENES.length;
@@ -87,6 +89,8 @@
     hintBtn.textContent = 'Hint (' + hints + ')';
     hintBtn.disabled = hints <= 0 || state !== 'playing';
     muteBtn.textContent = muted ? 'Sound: off' : 'Sound: on';
+    pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+    pauseBtn.disabled = state !== 'playing';
     if (timeLeft <= 15 && state === 'playing') timeStat.classList.add('low');
     else timeStat.classList.remove('low');
   }
@@ -98,6 +102,7 @@
 
   function hideOverlay() {
     overlay.classList.add('hidden');
+    overlay.classList.remove('click-through');
   }
 
   function showStart() {
@@ -128,6 +133,7 @@
   function startRound() {
     found = [];
     hints = 2;
+    paused = false;
     missMarks = [];
     hintPulse = null;
     timeLeft = scene().time;
@@ -233,7 +239,7 @@
   }
 
   function onCanvasClick(ev) {
-    if (state !== 'playing') return;
+    if (state !== 'playing' || paused) return;
     ensureAudio();
     var cv = ev.currentTarget;
     var rect = cv.getBoundingClientRect();
@@ -260,7 +266,7 @@
   }
 
   function useHint() {
-    if (state !== 'playing' || hints <= 0) return;
+    if (state !== 'playing' || paused || hints <= 0) return;
     var s = scene();
     var remaining = [];
     for (var i = 0; i < s.diffs.length; i++) {
@@ -274,9 +280,37 @@
     updateHud();
   }
 
+  function togglePause() {
+    if (state !== 'playing') return;
+    paused = !paused;
+    if (paused) {
+      showOverlay(
+        '<h2>Paused</h2>' +
+        '<p>The clock is frozen. Take a breath.</p>' +
+        '<div class="row"><button type="button" id="resumeBtn">Resume</button></div>'
+      );
+      overlay.classList.add('click-through');
+      document.getElementById('resumeBtn').addEventListener('click', function () {
+        playClick();
+        togglePause();
+      });
+    } else {
+      hideOverlay();
+    }
+    updateHud();
+  }
+
   cvA.addEventListener('click', onCanvasClick);
   cvB.addEventListener('click', onCanvasClick);
   hintBtn.addEventListener('click', useHint);
+  pauseBtn.addEventListener('click', function () {
+    ensureAudio();
+    playClick();
+    togglePause();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'p' || ev.key === 'P') togglePause();
+  });
   muteBtn.addEventListener('click', function () {
     muted = !muted;
     updateHud();
@@ -286,7 +320,7 @@
     if (!lastNow) lastNow = now;
     var dt = Math.min(0.25, (now - lastNow) / 1000);
     lastNow = now;
-    if (state === 'playing') {
+    if (state === 'playing' && !paused) {
       timeLeft -= dt;
       if (timeLeft <= 0) {
         timeLeft = 0;

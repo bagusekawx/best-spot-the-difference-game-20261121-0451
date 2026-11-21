@@ -103,6 +103,11 @@ main { max-width: 1120px; margin: 0 auto; padding: 10px 20px 24px; }
 
 .overlay.hidden { display: none; }
 
+/* Pause overlay: dim stays, but clicks pass through except on the card, so
+   the header's Resume button stays clickable while paused. */
+.overlay.click-through { pointer-events: none; }
+.overlay.click-through .card { pointer-events: auto; }
+
 .card {
   background: #26313f;
   border-radius: 16px;
